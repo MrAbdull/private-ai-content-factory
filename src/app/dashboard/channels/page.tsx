@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button";
 import { CONTENT_STYLES, PUBLISHING_MODES } from "@/lib/constants";
 import { formatNumber } from "@/lib/utils";
 import type { YouTubeChannel } from "@/types";
+import { ChannelEditor } from "@/components/dashboard/channel-editor";
 import { Plus, Settings2, Youtube } from "lucide-react";
 
 export default function ChannelsPage() {
   const [channels, setChannels] = useState<YouTubeChannel[]>([]);
+  const [editing, setEditing] = useState<YouTubeChannel | null>(null);
 
   async function load() {
     const res = await fetch("/api/channels");
@@ -82,14 +84,18 @@ export default function ChannelsPage() {
                     <p className="font-medium mb-1">Channel Personality</p>
                     <p className="text-muted-foreground text-xs">{channel.personality.audienceProfile}</p>
                   </div>
-                  <Button variant="outline" className="w-full" disabled>
-                    <Settings2 className="h-4 w-4" /> Configure (coming soon)
+                  <Button variant="outline" className="w-full" onClick={() => setEditing(channel)}>
+                    <Settings2 className="h-4 w-4" /> Configure Personality
                   </Button>
                 </CardContent>
               </Card>
             );
           })}
         </div>
+
+        {editing && (
+          <ChannelEditor channel={editing} onClose={() => setEditing(null)} onSaved={load} />
+        )}
       </div>
     </>
   );

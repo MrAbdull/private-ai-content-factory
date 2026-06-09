@@ -1,7 +1,11 @@
-import { getContent, getContentById, getChannels, saveContent, getJobs, updateJob, addJob } from "@/lib/store/database";
+import {
+  getContent, getContentById, getChannels, saveContent, getJobs, updateJob, addJob,
+  saveMetrics,
+} from "@/lib/store/database";
 import { publishToYouTube } from "@/lib/youtube/publish";
+import { syncChannelAnalytics } from "@/lib/youtube/analytics";
 import { createShortFromTopic } from "@/lib/pipeline/content-pipeline";
-import { evergreenQueueEngine } from "@/lib/engines/evergreen-queue";
+import { failedVideoLearningEngine } from "@/lib/engines/failed-video-learning";
 import { trendDiscoveryEngine } from "@/lib/engines/trend-discovery";
 import { saveTrends } from "@/lib/store/database";
 import { generateId } from "@/lib/store/local-store";
@@ -25,12 +29,8 @@ export async function processScheduledPublishing(): Promise<ProcessResult> {
     result.processed++;
     const jobId = generateId("job");
     await addJob({
-      id: jobId,
-      type: "publish",
-      provider: "local",
-      status: "running",
-      payload: { contentId: item.id },
-      createdAt: new Date().toISOString(),
+      id: jobId, type: "publish", provider: "local", status: "running",
+      payload: { contentId: item.id }, createdAt: new Date().toISOString(),
     });
 
     try {
@@ -54,16 +54,71 @@ export async function processScheduledPublishing(): Promise<ProcessResult> {
   return result;
 }
 
+export async function syncAnalytics(): Promise<number> {
+  const channels = await getChannels();
+  let synced = 0;
+
+  for (const channel of channels) {
+    const published = await getContent({ channelId: channel.id, status: "published" });
+    const metrics = await syncChannelAnalytics(channel, published);
+    for (const m of metrics) {
+      await saveMetrics(m);
+      synced++;
+
+      const item = await getContentById(m.contentId);
+      if (item && m.retentionRate < 0.35) {
+        const analysis = await failedVideoLearningEngine.analyze(item, m);
+        if (analysis.data?.improvedTitle) {
+          await addJob({
+            id: generateId("job"),
+            type: "regenerate_improved",
+            provider: "local",
+            status: "pending",
+            payload: {
+              contentId: item.id,
+              improvedTitle: analysis.data.improvedTitle,
+              improvements: analysis.data.improvements,
+            },
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
+  }
+
+  return synced;
+}
+
+export async function processPendingJobs(): Promise<number> {
+  const jobs = (await getJobs(100)).filter((j) => j.status === "pending");
+  let done = 0;
+
+  for (const job of jobs) {
+    if (job.type === "regenerate_improved") {
+      const contentId = job.payload.contentId as string;
+      const item = await getContentById(contentId);
+      if (item) {
+        await createShortFromTopic(
+          (job.payload.improvedTitle as string) || `${item.title} (Improved)`,
+          item.channelId,
+          item.sourceId
+        );
+        await updateJob(job.id, { status: "completed", completedAt: new Date().toISOString() });
+        done++;
+      }
+    }
+  }
+
+  return done;
+}
+
 export async function fillEvergreenGaps(): Promise<number> {
   const channels = await getChannels();
   let filled = 0;
 
   for (const channel of channels.filter((c) => c.isActive)) {
     const scheduled = (await getContent({ channelId: channel.id, status: "scheduled" })).length;
-    const fill = await evergreenQueueEngine.fillGap(channel.id, scheduled, channel.shortsPerDay);
-    if (fill.data) {
-      filled++;
-    } else if (scheduled < channel.shortsPerDay) {
+    if (scheduled < channel.shortsPerDay) {
       const topic = `Evergreen ${channel.contentStyle.replace(/_/g, " ")} content`;
       await createShortFromTopic(topic, channel.id);
       filled++;
@@ -84,15 +139,12 @@ export async function refreshTrends(): Promise<number> {
 
 export async function runFullCron(): Promise<Record<string, unknown>> {
   const publish = await processScheduledPublishing();
+  const analytics = await syncAnalytics();
+  const jobs = await processPendingJobs();
   const evergreen = await fillEvergreenGaps();
   const trends = await refreshTrends();
 
-  return {
-    publish,
-    evergreenFilled: evergreen,
-    trendsRefreshed: trends,
-    timestamp: new Date().toISOString(),
-  };
+  return { publish, analyticsSynced: analytics, jobsProcessed: jobs, evergreenFilled: evergreen, trendsRefreshed: trends, timestamp: new Date().toISOString() };
 }
 
 export async function retryFailedJob(jobId: string): Promise<AutomationJob | null> {
@@ -104,9 +156,7 @@ export async function retryFailedJob(jobId: string): Promise<AutomationJob | nul
   const item = await getContentById(contentId);
   if (!item) return null;
 
-  job.status = "running";
   await updateJob(jobId, { status: "running" });
-
   try {
     const pub = await publishToYouTube(item);
     item.status = "published";
@@ -117,6 +167,5 @@ export async function retryFailedJob(jobId: string): Promise<AutomationJob | nul
   } catch {
     await updateJob(jobId, { status: "failed", completedAt: new Date().toISOString() });
   }
-
   return job;
 }

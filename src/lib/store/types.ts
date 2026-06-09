@@ -26,6 +26,13 @@ export interface FootageUsageRecord {
   usedAt: string;
 }
 
+export interface EvergreenEntry {
+  contentId: string;
+  channelId: string;
+  priority: number;
+  addedAt: string;
+}
+
 export interface PlatformStore {
   channels: YouTubeChannel[];
   sources: ContentSource[];
@@ -35,5 +42,6 @@ export interface PlatformStore {
   jobs: AutomationJob[];
   blastOperations: BlastOperation[];
   footageUsage: FootageUsageRecord[];
+  evergreen?: EvergreenEntry[];
   version: number;
 }

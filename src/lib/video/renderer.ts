@@ -3,6 +3,8 @@ import { promises as fs } from "fs";
 import path from "path";
 import { promisify } from "util";
 import { config } from "@/lib/config";
+import { generateNarration } from "@/lib/ai/tts";
+import { writeSrtFile } from "@/lib/video/captions";
 
 const exec = promisify(execFile);
 
@@ -12,6 +14,7 @@ export interface RenderInput {
   script: string;
   durationSeconds: number;
   footageUrl?: string;
+  voice?: string;
 }
 
 export interface RenderOutput {
@@ -19,6 +22,8 @@ export interface RenderOutput {
   videoUrl: string;
   thumbnailPath: string;
   thumbnailUrl: string;
+  hasNarration: boolean;
+  hasCaptions: boolean;
 }
 
 function outputDir(): string {
@@ -33,14 +38,25 @@ export async function renderShort(input: RenderInput): Promise<RenderOutput> {
   const thumbnailPath = path.join(dir, `${input.contentId}-thumb.jpg`);
   const hookText = sanitizeText(input.hook).slice(0, 80);
 
+  const tts = await generateNarration(
+    input.contentId,
+    input.script,
+    input.durationSeconds,
+    input.voice ?? "alloy"
+  );
+
+  const duration = Math.max(input.durationSeconds, Math.ceil(tts.durationSeconds));
+  const srtPath = await writeSrtFile(input.contentId, input.script, duration);
+  const srtEscaped = srtPath.replace(/:/g, "\\:").replace(/'/g, "'\\''");
+
   if (input.footageUrl) {
     try {
-      await renderWithFootage(input, videoPath, hookText);
+      await renderWithFootage(input, videoPath, hookText, tts.audioPath, srtEscaped, duration);
     } catch {
-      await renderPlaceholder(input, videoPath, hookText);
+      await renderPlaceholder(input, videoPath, hookText, tts.audioPath, srtEscaped, duration);
     }
   } else {
-    await renderPlaceholder(input, videoPath, hookText);
+    await renderPlaceholder(input, videoPath, hookText, tts.audioPath, srtEscaped, duration);
   }
 
   await generateThumbnail(videoPath, thumbnailPath, hookText);
@@ -50,53 +66,65 @@ export async function renderShort(input: RenderInput): Promise<RenderOutput> {
     videoUrl: `/api/media/${input.contentId}.mp4`,
     thumbnailPath,
     thumbnailUrl: `/api/media/${input.contentId}-thumb.jpg`,
+    hasNarration: tts.provider === "openai",
+    hasCaptions: true,
   };
 }
 
 async function renderPlaceholder(
   input: RenderInput,
   outputPath: string,
-  hookText: string
+  hookText: string,
+  audioPath: string,
+  srtPath: string,
+  duration: number
 ): Promise<void> {
-  const duration = input.durationSeconds;
   const escaped = escapeDrawtext(hookText);
+  const subStyle = "FontSize=22,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,Outline=2,Alignment=2,MarginV=120";
 
   await exec("ffmpeg", [
     "-y",
     "-f", "lavfi",
     "-i", `color=c=0x1a1a2e:s=1080x1920:d=${duration}`,
+    "-i", audioPath,
     "-vf",
-    `drawtext=text='${escaped}':fontsize=52:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=black@0.5:boxborderw=20`,
+    `drawtext=text='${escaped}':fontsize=48:fontcolor=white:x=(w-text_w)/2:y=180:box=1:boxcolor=black@0.5:boxborderw=16,subtitles='${srtPath}':force_style='${subStyle}'`,
     "-c:v", "libx264",
+    "-c:a", "aac",
     "-pix_fmt", "yuv420p",
     "-t", String(duration),
+    "-shortest",
     outputPath,
-  ], { timeout: 120000 });
+  ], { timeout: 180000 });
 }
 
 async function renderWithFootage(
   input: RenderInput,
   outputPath: string,
-  hookText: string
+  hookText: string,
+  audioPath: string,
+  srtPath: string,
+  duration: number
 ): Promise<void> {
   const tempFootage = path.join(outputDir(), `${input.contentId}-footage.mp4`);
   const res = await fetch(input.footageUrl!);
   if (!res.ok) throw new Error("Footage download failed");
-  const buf = Buffer.from(await res.arrayBuffer());
-  await fs.writeFile(tempFootage, buf);
+  await fs.writeFile(tempFootage, Buffer.from(await res.arrayBuffer()));
 
   const escaped = escapeDrawtext(hookText);
-  const duration = input.durationSeconds;
+  const subStyle = "FontSize=22,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,Outline=2,Alignment=2,MarginV=140";
 
   await exec("ffmpeg", [
     "-y",
     "-i", tempFootage,
+    "-i", audioPath,
     "-vf",
-    `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,drawtext=text='${escaped}':fontsize=48:fontcolor=white:x=(w-text_w)/2:y=h-200:box=1:boxcolor=black@0.6:boxborderw=16`,
+    `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,drawtext=text='${escaped}':fontsize=44:fontcolor=white:x=(w-text_w)/2:y=120:box=1:boxcolor=black@0.6:boxborderw=14,subtitles='${srtPath}':force_style='${subStyle}'`,
     "-c:v", "libx264",
+    "-c:a", "aac",
     "-pix_fmt", "yuv420p",
     "-t", String(duration),
-    "-an",
+    "-shortest",
     outputPath,
   ], { timeout: 180000 });
 

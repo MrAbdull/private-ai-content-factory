@@ -9,12 +9,16 @@ import { videoResourceOrchestrator } from "@/lib/engines/video-resource-orchestr
 import { searchPexelsVideos } from "@/lib/footage/pexels";
 import { searchPixabayVideos } from "@/lib/footage/pixabay";
 import { renderShort } from "@/lib/video/renderer";
+import { composeThumbnail } from "@/lib/video/thumbnail-compositor";
+import path from "path";
+import { config } from "@/lib/config";
 import {
   saveContent,
   getChannel,
   getFootageUsageIds,
   recordFootageUsage,
   addJob,
+  addEvergreenContent,
 } from "@/lib/store/database";
 import { generateId } from "@/lib/store/local-store";
 import type { ContentItem, ContentSource, YouTubeChannel } from "@/types";
@@ -27,8 +31,10 @@ function nextStatus(channel: YouTubeChannel): ContentItem["status"] {
 }
 
 function nextScheduleSlot(channel: YouTubeChannel): string {
-  const slots = ["09:00", "12:00", "15:00", "18:00", "21:00"];
-  const slot = slots[Math.floor(Math.random() * Math.min(slots.length, channel.shortsPerDay))];
+  const slots = channel.publishSlots?.length
+    ? channel.publishSlots
+    : ["09:00", "12:00", "15:00", "18:00", "21:00"].slice(0, channel.shortsPerDay);
+  const slot = slots[Math.floor(Math.random() * slots.length)];
   const d = new Date();
   d.setDate(d.getDate() + (Math.random() > 0.5 ? 0 : 1));
   const [h, m] = slot.split(":");
@@ -162,18 +168,32 @@ async function renderAndFinalize(item: ContentItem, channel: YouTubeChannel): Pr
   }
 
   try {
+    const voice = (channel.personality.voiceSettings?.voice as string) ?? config.ttsVoice;
     const rendered = await renderShort({
       contentId: item.id,
       hook: item.hook,
       script: item.script,
       durationSeconds: item.durationSeconds,
       footageUrl,
+      voice,
     });
     item.videoUrl = rendered.videoUrl;
-    item.thumbnailUrl = rendered.thumbnailUrl;
-    item.thumbnails = item.thumbnails.map((t) =>
-      t.isSelected ? { ...t, imageUrl: rendered.thumbnailUrl } : t
-    );
+
+    for (const thumb of item.thumbnails) {
+      try {
+        const composed = await composeThumbnail({
+          contentId: item.id,
+          headline: thumb.headline,
+          layout: thumb.layout,
+        });
+        const composedUrl = `/api/media/${path.basename(composed)}`;
+        thumb.imageUrl = composedUrl;
+        if (thumb.isSelected) item.thumbnailUrl = composedUrl;
+      } catch {
+        if (thumb.isSelected) item.thumbnailUrl = rendered.thumbnailUrl;
+      }
+    }
+    if (!item.thumbnailUrl) item.thumbnailUrl = rendered.thumbnailUrl;
   } catch (e) {
     console.error("Render failed:", e);
     item.status = "failed";
@@ -192,6 +212,7 @@ async function renderAndFinalize(item: ContentItem, channel: YouTubeChannel): Pr
   if (item.status === "scheduled") {
     item.scheduledAt = nextScheduleSlot(channel);
     await enqueuePublishJob(item);
+    await addEvergreenContent(item.id, channel.id, 1);
   }
 
   return saveContent(item);

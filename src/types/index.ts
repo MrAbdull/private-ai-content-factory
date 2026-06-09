@@ -82,6 +82,8 @@ export interface YouTubeChannel {
   isActive: boolean;
   connectedAt: string;
   oauthTokens?: YouTubeOAuthTokens;
+  /** Daily publish times e.g. ["09:00", "15:00", "21:00"] */
+  publishSlots?: string[];
 }
 
 export interface ContentSource {

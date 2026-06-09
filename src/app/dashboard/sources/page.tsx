@@ -50,6 +50,23 @@ export default function SourcesPage() {
     }
   }
 
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("type", file.name.endsWith(".pdf") ? "pdf" : "uploaded_file");
+      if (title) form.append("title", title);
+      await fetch("/api/sources", { method: "POST", body: form });
+      setTitle("");
+      load();
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function repurpose(sourceId: string, channelId: string) {
     setRepurposing(sourceId);
     try {
@@ -109,10 +126,18 @@ export default function SourcesPage() {
                   required
                 />
               </div>
-              <Button type="submit" disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileInput className="h-4 w-4" />}
-                Import Source
-              </Button>
+              <div className="flex gap-2 flex-wrap">
+                <Button type="submit" disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileInput className="h-4 w-4" />}
+                  Import Source
+                </Button>
+                <Label className="cursor-pointer">
+                  <span className="inline-flex h-10 items-center rounded-lg border border-input px-4 text-sm hover:bg-accent">
+                    Upload PDF / File
+                  </span>
+                  <input type="file" accept=".pdf,.txt,.md" className="hidden" onChange={handleFileUpload} />
+                </Label>
+              </div>
             </form>
           </CardContent>
         </Card>

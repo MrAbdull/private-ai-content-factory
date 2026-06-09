@@ -16,6 +16,7 @@ function defaultStore(): PlatformStore {
     jobs: [...mockJobs],
     blastOperations: [],
     footageUsage: [],
+    evergreen: [],
     version: 1,
   };
 }

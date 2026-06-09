@@ -9,7 +9,8 @@ export interface ParsedSource {
 export async function parseSourceInput(
   type: SourceType,
   input: string,
-  fileName?: string
+  fileName?: string,
+  fileBuffer?: Buffer
 ): Promise<ParsedSource> {
   switch (type) {
     case "url":
@@ -21,10 +22,14 @@ export async function parseSourceInput(
     case "google_doc":
       return parseGoogleDocUrl(input);
     case "pdf":
-      return parsePdfPlaceholder(input, fileName);
+      return parsePdf(fileBuffer, fileName, input);
     case "podcast":
-      return { title: fileName ?? "Podcast transcript", rawContent: input, metadata: { type: "podcast" } };
     case "transcript":
+      return {
+        title: fileName ?? "Transcript",
+        rawContent: input,
+        metadata: { type, wordCount: input.split(/\s+/).length },
+      };
     case "script":
     case "notes":
     case "raw_text":
@@ -37,6 +42,30 @@ export async function parseSourceInput(
         metadata: { type, charCount: input.length },
       };
   }
+}
+
+async function parsePdf(buffer?: Buffer, fileName?: string, fallbackText?: string): Promise<ParsedSource> {
+  if (buffer && buffer.length > 0) {
+    try {
+      const pdfModule = await import("pdf-parse");
+      const pdfParse = "default" in pdfModule && pdfModule.default
+        ? pdfModule.default
+        : (pdfModule as unknown as (buf: Buffer) => Promise<{ text: string; numpages: number }>);
+      const data = await (pdfParse as (buf: Buffer) => Promise<{ text: string; numpages: number }>)(buffer);
+      return {
+        title: fileName ?? "PDF Document",
+        rawContent: data.text.slice(0, 50000),
+        metadata: { type: "pdf", pages: data.numpages, fileName },
+      };
+    } catch (e) {
+      console.error("PDF parse error:", e);
+    }
+  }
+  return {
+    title: fileName ?? "PDF Document",
+    rawContent: fallbackText || "[Could not parse PDF — paste extracted text as raw_text]",
+    metadata: { type: "pdf", parseError: true },
+  };
 }
 
 async function parseUrl(url: string): Promise<ParsedSource> {
@@ -70,10 +99,23 @@ async function parseYouTubeUrl(url: string): Promise<ParsedSource> {
     }
   } catch { /* ignore */ }
 
+  let transcript = "";
+  try {
+    const { YoutubeTranscript } = await import("youtube-transcript");
+    const segments = await YoutubeTranscript.fetchTranscript(videoId);
+    transcript = segments.map((s: { text: string }) => s.text).join(" ");
+  } catch {
+    transcript = "";
+  }
+
+  const rawContent = transcript.length > 50
+    ? `Title: ${title}\n\nTranscript:\n${transcript.slice(0, 50000)}`
+    : `YouTube video: ${title}\nVideo ID: ${videoId}\nURL: ${url}\n\n[No auto-transcript available — paste transcript manually as transcript source type]`;
+
   return {
     title,
-    rawContent: `YouTube video: ${title}\nVideo ID: ${videoId}\nURL: ${url}\n\n[Transcript extraction requires youtube-transcript integration — paste transcript manually or use OpenAI on title/description for Shorts angles.]`,
-    metadata: { sourceUrl: url, videoId, platform: "youtube" },
+    rawContent,
+    metadata: { sourceUrl: url, videoId, platform: "youtube", hasTranscript: transcript.length > 50 },
   };
 }
 
@@ -85,25 +127,13 @@ async function parseGoogleDocUrl(url: string): Promise<ParsedSource> {
     const res = await fetch(exportUrl, { signal: AbortSignal.timeout(15000) });
     if (res.ok) {
       const text = await res.text();
-      return {
-        title: "Google Doc",
-        rawContent: text.slice(0, 15000),
-        metadata: { sourceUrl: url },
-      };
+      return { title: "Google Doc", rawContent: text.slice(0, 15000), metadata: { sourceUrl: url } };
     }
   } catch { /* ignore */ }
   return {
-    title: "Google Doc (manual)",
-    rawContent: `Google Doc URL: ${url}\n\nExport the doc as text and re-import, or paste content directly.`,
+    title: "Google Doc",
+    rawContent: `Google Doc URL: ${url}\n\nExport as text and re-import if needed.`,
     metadata: { sourceUrl: url, needsManualExport: true },
-  };
-}
-
-function parsePdfPlaceholder(content: string, fileName?: string): ParsedSource {
-  return {
-    title: fileName ?? "PDF Document",
-    rawContent: content || "[PDF binary uploaded — install pdf-parse for full extraction. Paste extracted text as raw_text source.]",
-    metadata: { type: "pdf", fileName },
   };
 }
 
