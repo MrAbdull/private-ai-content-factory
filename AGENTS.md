@@ -1,17 +1,6 @@
 # AGENTS.md
 
-Guidance for AI agents working in **private-ai-content-factory**.
-
-## Product
-
-Private single-user AI content studio for autonomous YouTube Shorts production. **Not SaaS** — no billing, subscriptions, multi-tenancy, or public registration.
-
-## Tech Stack
-
-- **Next.js 15** (App Router, `src/`)
-- **Supabase** (auth + Postgres)
-- **YouTube Data API** (OAuth + publishing)
-- **Modular engines** in `src/lib/engines/`
+Private single-user AI content studio for autonomous YouTube Shorts. **Not SaaS.**
 
 ## Commands
 
@@ -22,45 +11,38 @@ Private single-user AI content studio for autonomous YouTube Shorts production. 
 | Build | `npm run build` |
 | Lint | `npm run lint` |
 | Typecheck | `npm run typecheck` |
+| Cron (manual) | `curl -X POST http://localhost:3000/api/cron/process -H "x-cron-secret: dev-cron-secret"` |
+
+## Architecture
+
+- **Dashboard**: `src/app/dashboard/`
+- **API routes**: `src/app/api/`
+- **AI engines**: `src/lib/engines/`
+- **Production pipeline**: `src/lib/pipeline/content-pipeline.ts` (AI → versions → footage → FFmpeg → safety → schedule)
+- **Persistence**: `src/lib/store/` — local JSON in `.data/store.json` (default); Supabase optional
+- **Video output**: `.data/media/` served at `/api/media/[filename]`
 
 ## Cursor Cloud specific instructions
 
-### Services
-
-| Service | Required | Command |
-|---------|----------|---------|
-| Next.js dev server | Yes | `npm run dev` (port 3000) |
-
-Supabase is required for production auth/DB but **not** for local dev — the app uses mock data when `NEXT_PUBLIC_SUPABASE_URL` is unset. Middleware skips auth redirects without Supabase.
-
-### Dev without secrets
-
-1. `npm install`
-2. `npm run dev`
-3. Open `/dashboard` directly (no login when Supabase unset)
-
-### With Supabase
-
-1. Copy `.env.example` → `.env.local`
-2. Run `supabase/migrations/001_initial_schema.sql` in Supabase SQL editor
-3. Create a single user in Supabase Auth
-
-### Long-running processes
-
-Start the dev server in **tmux**:
+### Dev server (tmux)
 
 ```bash
 tmux -f /exec-daemon/tmux.portal.conf new-session -d -s next-dev -c /workspace -- npm run dev
 ```
 
-### Key directories
+### Without secrets
 
-- `src/lib/engines/` — all AI orchestration logic; extend here for new features
-- `src/app/dashboard/` — dashboard pages
-- `src/app/api/` — API routes
-- `supabase/migrations/` — database schema
+Works out of the box: mock/template AI, FFmpeg placeholder videos, local publish IDs.
+
+### With secrets
+
+Copy `.env.example` → `.env.local`. Set `OPENAI_API_KEY`, `YOUTUBE_*`, `PEXELS_API_KEY`, `PIXABAY_API_KEY` for full pipeline.
+
+### Cron
+
+POST `/api/cron/process` with `x-cron-secret` header. GitHub Action template in `.github/workflows/cron.yml`.
 
 ### Do not
 
-- Add billing, subscriptions, or multi-tenancy
-- Copy code from `justreadyresumes-platform` (unrelated project)
+- Add billing, multi-tenancy, or public registration
+- Copy from `justreadyresumes-platform`

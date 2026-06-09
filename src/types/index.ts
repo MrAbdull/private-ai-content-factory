@@ -60,6 +60,15 @@ export interface ChannelPersonality {
   tone: string;
 }
 
+export interface YouTubeOAuthTokens {
+  access_token: string;
+  refresh_token?: string;
+  expires_in: number;
+  token_type: string;
+  scope?: string;
+  obtained_at: number;
+}
+
 export interface YouTubeChannel {
   id: string;
   name: string;
@@ -72,6 +81,7 @@ export interface YouTubeChannel {
   personality: ChannelPersonality;
   isActive: boolean;
   connectedAt: string;
+  oauthTokens?: YouTubeOAuthTokens;
 }
 
 export interface ContentSource {
