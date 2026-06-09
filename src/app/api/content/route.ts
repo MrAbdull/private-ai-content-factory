@@ -4,15 +4,11 @@ import type { ContentStatus } from "@/types";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") as ContentStatus | null;
-  const channelId = searchParams.get("channelId") ?? undefined;
-  const search = searchParams.get("search") ?? undefined;
-
   const items = await getContent({
-    status: status ?? undefined,
-    channelId,
-    search,
+    status: (searchParams.get("status") as ContentStatus) || undefined,
+    channelId: searchParams.get("channelId") ?? undefined,
+    search: searchParams.get("search") ?? undefined,
+    style: searchParams.get("style") ?? undefined,
   });
-
   return NextResponse.json({ success: true, data: items });
 }

@@ -8,7 +8,7 @@ import type {
   YouTubeChannel,
 } from "@/types";
 import { generateId, readStore, updateStore } from "./local-store";
-import type { BlastOperation, FootageUsageRecord } from "./types";
+import type { BlastOperation, EvergreenEntry, FootageUsageRecord } from "./types";
 
 export async function getChannels(): Promise<YouTubeChannel[]> {
   const store = await readStore();
@@ -29,15 +29,23 @@ export async function upsertChannel(channel: YouTubeChannel): Promise<YouTubeCha
   return channel;
 }
 
+export async function deleteChannel(id: string): Promise<void> {
+  await updateStore((store) => {
+    store.channels = store.channels.filter((c) => c.id !== id);
+  });
+}
+
 export async function getContent(filters?: {
   status?: ContentStatus;
   channelId?: string;
   search?: string;
+  style?: string;
 }): Promise<ContentItem[]> {
   const store = await readStore();
   let items = [...store.content];
   if (filters?.status) items = items.filter((c) => c.status === filters.status);
   if (filters?.channelId) items = items.filter((c) => c.channelId === filters.channelId);
+  if (filters?.style) items = items.filter((c) => c.style === filters.style);
   if (filters?.search) {
     const q = filters.search.toLowerCase();
     items = items.filter(
@@ -84,16 +92,10 @@ export async function duplicateContent(id: string): Promise<ContentItem | null> 
     videoUrl: undefined,
     createdAt: new Date().toISOString(),
     versions: original.versions.map((v) => ({
-      ...v,
-      id: generateId("ver"),
-      contentId: "",
-      isSelected: false,
+      ...v, id: generateId("ver"), contentId: "", isSelected: false,
     })),
     thumbnails: original.thumbnails.map((t) => ({
-      ...t,
-      id: generateId("thumb"),
-      contentId: "",
-      isSelected: false,
+      ...t, id: generateId("thumb"), contentId: "", isSelected: false,
     })),
   };
   copy.versions.forEach((v) => { v.contentId = copy.id; });
@@ -134,9 +136,7 @@ export async function getTrends(): Promise<TrendOpportunity[]> {
 }
 
 export async function saveTrends(trends: TrendOpportunity[]): Promise<void> {
-  await updateStore((store) => {
-    store.trends = trends;
-  });
+  await updateStore((store) => { store.trends = trends; });
 }
 
 export async function getJobs(limit = 50): Promise<AutomationJob[]> {
@@ -145,9 +145,7 @@ export async function getJobs(limit = 50): Promise<AutomationJob[]> {
 }
 
 export async function addJob(job: AutomationJob): Promise<AutomationJob> {
-  await updateStore((store) => {
-    store.jobs.push(job);
-  });
+  await updateStore((store) => { store.jobs.push(job); });
   return job;
 }
 
@@ -164,15 +162,11 @@ export async function getPendingJobs(): Promise<AutomationJob[]> {
 }
 
 export async function saveBlastOperation(op: BlastOperation): Promise<void> {
-  await updateStore((store) => {
-    store.blastOperations.push(op);
-  });
+  await updateStore((store) => { store.blastOperations.push(op); });
 }
 
 export async function recordFootageUsage(record: FootageUsageRecord): Promise<void> {
-  await updateStore((store) => {
-    store.footageUsage.push(record);
-  });
+  await updateStore((store) => { store.footageUsage.push(record); });
 }
 
 export async function getFootageUsageIds(): Promise<string[]> {
@@ -192,6 +186,35 @@ export async function getScheduledContent(): Promise<ContentItem[]> {
 export async function addEvergreenContent(contentId: string, channelId: string, priority = 0): Promise<void> {
   await updateStore((store) => {
     if (!store.evergreen) store.evergreen = [];
-    store.evergreen.push({ contentId, channelId, priority, addedAt: new Date().toISOString() });
+    if (!store.evergreen.find((e) => e.contentId === contentId)) {
+      store.evergreen.push({ contentId, channelId, priority, addedAt: new Date().toISOString() });
+    }
   });
+}
+
+export async function getEvergreenQueue(): Promise<(EvergreenEntry & { content?: ContentItem })[]> {
+  const store = await readStore();
+  const entries = store.evergreen ?? [];
+  return entries.map((e) => ({
+    ...e,
+    content: store.content.find((c) => c.id === e.contentId),
+  })).sort((a, b) => b.priority - a.priority);
+}
+
+export async function removeEvergreen(contentId: string): Promise<void> {
+  await updateStore((store) => {
+    if (store.evergreen) store.evergreen = store.evergreen.filter((e) => e.contentId !== contentId);
+  });
+}
+
+export async function getNotifications(): Promise<{ type: string; message: string; at: string }[]> {
+  const store = await readStore();
+  const notes: { type: string; message: string; at: string }[] = [];
+  const review = store.content.filter((c) => c.status === "review").length;
+  if (review > 0) notes.push({ type: "review", message: `${review} video(s) awaiting review`, at: new Date().toISOString() });
+  const failed = store.content.filter((c) => c.status === "failed").length;
+  if (failed > 0) notes.push({ type: "failed", message: `${failed} failed publish(es)`, at: new Date().toISOString() });
+  const lowEvergreen = (store.evergreen ?? []).length < 3;
+  if (lowEvergreen) notes.push({ type: "evergreen", message: "Evergreen reserve is low", at: new Date().toISOString() });
+  return notes;
 }

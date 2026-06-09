@@ -7,6 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BarChart3, Eye, Clock, Users, ThumbsUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+interface InsightsData {
+  patterns: { topHooks: string[]; recommendations: string[] };
+  weak: { content: { title: string }; metrics?: { retentionRate: number } }[];
+}
+
 interface AnalyticsData {
   summary: {
     totalViews: string;
@@ -21,9 +26,11 @@ interface AnalyticsData {
 
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const [insights, setInsights] = useState<InsightsData | null>(null);
 
   useEffect(() => {
     fetch("/api/analytics").then((r) => r.json()).then((d) => setData(d.data));
+    fetch("/api/analytics/insights").then((r) => r.json()).then((d) => setInsights(d.data));
   }, []);
 
   const topMetric = data?.metrics?.[0];
@@ -61,6 +68,22 @@ export default function AnalyticsPage() {
                 )}
               </CardContent>
             </Card>
+            {insights && (
+              <Card>
+                <CardHeader><CardTitle>Performance Intelligence</CardTitle></CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {insights.patterns.recommendations.map((r) => (
+                    <p key={r} className="text-muted-foreground">→ {r}</p>
+                  ))}
+                  {insights.patterns.topHooks.slice(0, 3).map((h) => (
+                    <p key={h} className="text-xs border-l-2 border-primary pl-2">Top hook: {h}</p>
+                  ))}
+                  {insights.weak.length > 0 && (
+                    <p className="text-amber-500 text-xs">{insights.weak.length} underperforming — auto-regenerate jobs queued on cron</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
             {topMetric && (
               <Card>
                 <CardHeader><CardTitle className="flex items-center gap-2"><ThumbsUp className="h-4 w-4" /> Engagement</CardTitle></CardHeader>

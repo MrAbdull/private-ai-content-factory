@@ -3,7 +3,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getChannels, getContent, getJobs } from "@/lib/store/database";
+import { getChannels, getContent, getJobs, getNotifications } from "@/lib/store/database";
 import { resourceManagementEngine } from "@/lib/engines/resource-management";
 import { formatNumber } from "@/lib/utils";
 import { Activity, Calendar, Film, TrendingUp, Youtube, Zap } from "lucide-react";
@@ -12,6 +12,7 @@ export default async function DashboardPage() {
   const channels = await getChannels();
   const content = await getContent();
   const jobs = await getJobs(10);
+  const notifications = await getNotifications();
   const resources = resourceManagementEngine.getUsageSnapshot();
 
   const scheduled = content.filter((c) => c.status === "scheduled").length;
@@ -27,6 +28,15 @@ export default async function DashboardPage() {
         description="Autonomous content production studio — all channels at a glance"
       />
       <div className="space-y-6 p-4 lg:p-8">
+        {notifications.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {notifications.map((n, i) => (
+              <div key={i} className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm">
+                {n.message}
+              </div>
+            ))}
+          </div>
+        )}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <StatCard title="Connected Channels" value={channels.length} icon={Youtube} subtitle={`${totalShortsPerDay} Shorts/day`} />
           <StatCard title="In Review" value={review} icon={Zap} subtitle="Awaiting approval" />

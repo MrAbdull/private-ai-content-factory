@@ -7,6 +7,7 @@ const backend = config.useSupabaseStore ? supabase : local;
 export const getChannels = backend.getChannels;
 export const getChannel = backend.getChannel;
 export const upsertChannel = backend.upsertChannel;
+export const deleteChannel = local.deleteChannel;
 export const getContent = backend.getContent;
 export const getContentById = backend.getContentById;
 export const saveContent = backend.saveContent;
@@ -28,5 +29,8 @@ export const getFootageUsageIds = backend.getFootageUsageIds;
 export const getReviewQueue = backend.getReviewQueue;
 export const getScheduledContent = backend.getScheduledContent;
 export const addEvergreenContent = backend.addEvergreenContent;
+export const getEvergreenQueue = local.getEvergreenQueue;
+export const removeEvergreen = local.removeEvergreen;
+export const getNotifications = local.getNotifications;
 
 export { generateId } from "./local-store";

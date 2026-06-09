@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSources, saveSource } from "@/lib/store/database";
 import { generateId } from "@/lib/store/local-store";
 import { parseSourceInput } from "@/lib/ingestion/parsers";
+import { transcribeAudio, isAudioFile } from "@/lib/ai/transcribe";
 import type { SourceType } from "@/types";
 
 const sourceSchema = z.object({
@@ -32,10 +33,22 @@ export async function POST(request: Request) {
 
       const buffer = Buffer.from(await file.arrayBuffer());
       const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
-      const sourceType: SourceType = isPdf ? "pdf" : "uploaded_file";
-      const textFallback = isPdf ? "" : buffer.toString("utf-8").slice(0, 50000);
+      const isAudio = isAudioFile(file.name, file.type);
 
-      const result = await parseSourceInput(sourceType, textFallback, file.name, buffer);
+      let sourceType: SourceType = "uploaded_file";
+      let result;
+
+      if (isPdf) {
+        sourceType = "pdf";
+        result = await parseSourceInput("pdf", "", file.name, buffer);
+      } else if (isAudio) {
+        sourceType = "podcast";
+        const transcript = await transcribeAudio(buffer, file.name);
+        result = { title: file.name, rawContent: transcript, metadata: { transcribed: true } };
+      } else {
+        const textFallback = buffer.toString("utf-8").slice(0, 50000);
+        result = await parseSourceInput("uploaded_file", textFallback, file.name, buffer);
+      }
       const source = await saveSource({
         id: generateId("src"),
         type: sourceType,

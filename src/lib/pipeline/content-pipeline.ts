@@ -176,6 +176,7 @@ async function renderAndFinalize(item: ContentItem, channel: YouTubeChannel): Pr
       durationSeconds: item.durationSeconds,
       footageUrl,
       voice,
+      style: item.style,
     });
     item.videoUrl = rendered.videoUrl;
 

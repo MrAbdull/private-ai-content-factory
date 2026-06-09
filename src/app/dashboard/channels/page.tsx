@@ -84,9 +84,17 @@ export default function ChannelsPage() {
                     <p className="font-medium mb-1">Channel Personality</p>
                     <p className="text-muted-foreground text-xs">{channel.personality.audienceProfile}</p>
                   </div>
-                  <Button variant="outline" className="w-full" onClick={() => setEditing(channel)}>
-                    <Settings2 className="h-4 w-4" /> Configure Personality
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setEditing(channel)}>
+                      <Settings2 className="h-4 w-4" /> Configure
+                    </Button>
+                    {channel.oauthTokens && (
+                      <Button variant="outline" size="sm" onClick={async () => {
+                        await fetch(`/api/channels/${channel.id}/disconnect`, { method: "POST" });
+                        load();
+                      }}>Disconnect</Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );

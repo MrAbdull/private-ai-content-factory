@@ -45,6 +45,7 @@ export const NAV_ITEMS = [
   { href: "/dashboard/review", label: "Review Queue", icon: "CheckCircle" },
   { href: "/dashboard/calendar", label: "Calendar", icon: "Calendar" },
   { href: "/dashboard/analytics", label: "Analytics", icon: "BarChart3" },
+  { href: "/dashboard/evergreen", label: "Evergreen", icon: "Archive" },
   { href: "/dashboard/trends", label: "Trends", icon: "TrendingUp" },
   { href: "/dashboard/automation", label: "Automation", icon: "Bot" },
   { href: "/dashboard/settings", label: "Settings", icon: "Settings" },

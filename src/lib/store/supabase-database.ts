@@ -135,7 +135,7 @@ export async function upsertChannel(channel: YouTubeChannel) {
   return channel;
 }
 
-export async function getContent(filters?: { status?: ContentStatus; channelId?: string; search?: string }) {
+export async function getContent(filters?: { status?: ContentStatus; channelId?: string; search?: string; style?: string }) {
   let q = db().from("content_items").select("*").eq("user_id", uid()).order("created_at", { ascending: false });
   if (filters?.status) q = q.eq("status", filters.status);
   if (filters?.channelId) q = q.eq("channel_id", filters.channelId);
@@ -145,6 +145,7 @@ export async function getContent(filters?: { status?: ContentStatus; channelId?:
     const s = filters.search.toLowerCase();
     rows = rows.filter((r) => String(r.title).toLowerCase().includes(s));
   }
+  if (filters?.style) rows = rows.filter((r) => r.content_style === filters.style);
   const ids = rows.map((r) => r.id as string);
   const { versions, thumbnails } = await loadVersionsAndThumbs(ids);
   return rows.map((r) => rowToContent(r, versions[r.id as string] ?? [], thumbnails[r.id as string] ?? []));
@@ -292,3 +293,7 @@ export const getFootageUsageIds = local.getFootageUsageIds;
 export const getReviewQueue = local.getReviewQueue;
 export const getScheduledContent = local.getScheduledContent;
 export const addEvergreenContent = local.addEvergreenContent;
+export const deleteChannel = local.deleteChannel;
+export const getEvergreenQueue = local.getEvergreenQueue;
+export const removeEvergreen = local.removeEvergreen;
+export const getNotifications = local.getNotifications;

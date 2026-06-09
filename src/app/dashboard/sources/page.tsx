@@ -133,9 +133,9 @@ export default function SourcesPage() {
                 </Button>
                 <Label className="cursor-pointer">
                   <span className="inline-flex h-10 items-center rounded-lg border border-input px-4 text-sm hover:bg-accent">
-                    Upload PDF / File
+                    Upload PDF / Audio / File
                   </span>
-                  <input type="file" accept=".pdf,.txt,.md" className="hidden" onChange={handleFileUpload} />
+                  <input type="file" accept=".pdf,.txt,.md,.mp3,.wav,.m4a,.ogg,.webm" className="hidden" onChange={handleFileUpload} />
                 </Label>
               </div>
             </form>
