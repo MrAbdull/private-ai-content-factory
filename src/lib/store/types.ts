@@ -3,9 +3,11 @@ import type {
   ContentItem,
   ContentSource,
   PerformanceMetrics,
+  ResourceUsage,
   TrendOpportunity,
   YouTubeChannel,
 } from "@/types";
+import type { ContentFingerprint } from "@/types/platforms";
 
 export interface BlastOperation {
   id: string;
@@ -43,5 +45,8 @@ export interface PlatformStore {
   blastOperations: BlastOperation[];
   footageUsage: FootageUsageRecord[];
   evergreen?: EvergreenEntry[];
+  fingerprints?: ContentFingerprint[];
+  resourceUsage?: ResourceUsage[];
+  crossPostDefaults?: string[];
   version: number;
 }

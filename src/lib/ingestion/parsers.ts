@@ -120,21 +120,31 @@ async function parseYouTubeUrl(url: string): Promise<ParsedSource> {
 }
 
 async function parseGoogleDocUrl(url: string): Promise<ParsedSource> {
-  const exportUrl = url.includes("/edit")
-    ? url.replace(/\/edit.*$/, "/export?format=txt")
-    : url;
   try {
-    const res = await fetch(exportUrl, { signal: AbortSignal.timeout(15000) });
-    if (res.ok) {
-      const text = await res.text();
-      return { title: "Google Doc", rawContent: text.slice(0, 15000), metadata: { sourceUrl: url } };
-    }
-  } catch { /* ignore */ }
-  return {
-    title: "Google Doc",
-    rawContent: `Google Doc URL: ${url}\n\nExport as text and re-import if needed.`,
-    metadata: { sourceUrl: url, needsManualExport: true },
-  };
+    const { fetchGoogleDocContent } = await import("@/lib/google/drive");
+    const doc = await fetchGoogleDocContent(url);
+    return {
+      title: doc.title,
+      rawContent: doc.text.slice(0, 50000),
+      metadata: { sourceUrl: url, viaDriveApi: true },
+    };
+  } catch (e) {
+    const exportUrl = url.includes("/edit")
+      ? url.replace(/\/edit.*$/, "/export?format=txt")
+      : url;
+    try {
+      const res = await fetch(exportUrl, { signal: AbortSignal.timeout(15000) });
+      if (res.ok) {
+        const text = await res.text();
+        return { title: "Google Doc", rawContent: text.slice(0, 15000), metadata: { sourceUrl: url } };
+      }
+    } catch { /* ignore */ }
+    return {
+      title: "Google Doc",
+      rawContent: `Google Doc URL: ${url}\n\n${e instanceof Error ? e.message : "Export failed"} — paste text manually.`,
+      metadata: { sourceUrl: url, needsManualExport: true },
+    };
+  }
 }
 
 function extractTag(html: string, tag: string): string | null {

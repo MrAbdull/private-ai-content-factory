@@ -14,6 +14,7 @@ import {
   Settings,
   TrendingUp,
   Youtube,
+  Share2,
   Zap,
   Factory,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import { NAV_ITEMS } from "@/lib/constants";
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
   Youtube,
+  Share2,
   Zap,
   FileInput,
   Library,

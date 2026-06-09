@@ -137,10 +137,14 @@ export interface ContentItem {
   scheduledAt?: string;
   publishedAt?: string;
   youtubeVideoId?: string;
+  platformIds?: Partial<Record<"youtube" | "tiktok" | "instagram" | "facebook" | "linkedin" | "x", string>>;
+  crossPostPlatforms?: string[];
   versions: VideoVersion[];
   thumbnails: ThumbnailVariant[];
   createdAt: string;
 }
+
+export type { SocialPlatform, PlatformPublishResult, PlatformConnection } from "./platforms";
 
 export interface PerformanceMetrics {
   contentId: string;

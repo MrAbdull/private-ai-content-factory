@@ -2,7 +2,8 @@ import {
   getContent, getContentById, getChannels, saveContent, getJobs, updateJob, addJob,
   saveMetrics,
 } from "@/lib/store/database";
-import { publishToYouTube } from "@/lib/youtube/publish";
+import { publishToPlatforms, applyPublishResults } from "@/lib/platforms/orchestrator";
+import { resourceManagementEngine } from "@/lib/engines/resource-management";
 import { syncChannelAnalytics } from "@/lib/youtube/analytics";
 import { createShortFromTopic } from "@/lib/pipeline/content-pipeline";
 import { failedVideoLearningEngine } from "@/lib/engines/failed-video-learning";
@@ -34,14 +35,14 @@ export async function processScheduledPublishing(): Promise<ProcessResult> {
     });
 
     try {
-      const pub = await publishToYouTube(item);
-      item.status = "published";
-      item.publishedAt = new Date().toISOString();
-      item.youtubeVideoId = pub.videoId;
-      await saveContent(item);
+      const platforms = await publishToPlatforms(item);
+      const updated = applyPublishResults(item, platforms);
+      await saveContent(updated);
+      resourceManagementEngine.recordUsage("scheduled_publish", platforms.some((p) => p.success));
       await updateJob(jobId, { status: "completed", completedAt: new Date().toISOString() });
       result.published++;
-      result.details.push(`Published: ${item.title}`);
+      const ok = platforms.filter((p) => p.success).map((p) => p.platform).join(", ");
+      result.details.push(`Published: ${item.title} → ${ok || "none"}`);
     } catch (e) {
       item.status = "failed";
       await saveContent(item);
@@ -158,11 +159,9 @@ export async function retryFailedJob(jobId: string): Promise<AutomationJob | nul
 
   await updateJob(jobId, { status: "running" });
   try {
-    const pub = await publishToYouTube(item);
-    item.status = "published";
-    item.youtubeVideoId = pub.videoId;
-    item.publishedAt = new Date().toISOString();
-    await saveContent(item);
+    const platforms = await publishToPlatforms(item);
+    const updated = applyPublishResults(item, platforms);
+    await saveContent(updated);
     await updateJob(jobId, { status: "completed", completedAt: new Date().toISOString() });
   } catch {
     await updateJob(jobId, { status: "failed", completedAt: new Date().toISOString() });

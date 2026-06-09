@@ -49,6 +49,9 @@ async function resumableUpload(
   videoPath: string,
   item: ContentItem
 ): Promise<string> {
+  const scheduledAt = item.scheduledAt ? new Date(item.scheduledAt) : null;
+  const isFutureSchedule = scheduledAt && scheduledAt.getTime() > Date.now() + 60_000;
+
   const metadata = {
     snippet: {
       title: item.title.slice(0, 100),
@@ -57,8 +60,9 @@ async function resumableUpload(
       categoryId: "22",
     },
     status: {
-      privacyStatus: "public",
+      privacyStatus: isFutureSchedule ? "private" : "public",
       selfDeclaredMadeForKids: false,
+      ...(isFutureSchedule ? { publishAt: scheduledAt!.toISOString() } : {}),
     },
   };
 

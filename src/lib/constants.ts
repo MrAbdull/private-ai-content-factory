@@ -39,6 +39,7 @@ export const SOURCE_TYPES: { value: SourceType; label: string }[] = [
 export const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: "LayoutDashboard" },
   { href: "/dashboard/channels", label: "Channels", icon: "Youtube" },
+  { href: "/dashboard/platforms", label: "Platforms", icon: "Share2" },
   { href: "/dashboard/blast", label: "Content Blast", icon: "Zap" },
   { href: "/dashboard/sources", label: "Sources", icon: "FileInput" },
   { href: "/dashboard/library", label: "Content Library", icon: "Library" },

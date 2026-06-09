@@ -1,3 +1,4 @@
+import { checkCopyright } from "@/lib/engines/copyright";
 import { getContent } from "@/lib/store/database";
 import type { ContentItem } from "@/types";
 import type { EngineResult, SafetyCheckResult } from "./types";
@@ -15,7 +16,7 @@ function getProfanityList(): string[] {
 export class SafetyComplianceEngine {
   async validate(content: ContentItem): Promise<EngineResult<SafetyCheckResult>> {
     const checks = await Promise.all([
-      this.checkCopyright(content),
+      this.checkCopyrightFingerprint(content),
       this.checkDuplicate(content),
       this.checkMetadata(content),
       this.checkProfanity(content),
@@ -27,12 +28,18 @@ export class SafetyComplianceEngine {
     return { success: true, data: { passed, checks }, provider: "safety_compliance" };
   }
 
-  private checkCopyright(content: ContentItem) {
+  private async checkCopyrightFingerprint(content: ContentItem) {
+    const fp = await checkCopyright(content);
     const licensed = !content.videoUrl?.includes("unlicensed");
+    const passed = fp.passed && licensed;
     return {
       type: "copyright",
-      passed: licensed,
-      message: licensed ? "Licensed/approved footage only" : "Unlicensed source flagged",
+      passed,
+      message: !fp.passed
+        ? `Duplicate fingerprint — similar to content ${fp.duplicateOf}`
+        : licensed
+          ? "Unique content fingerprint · licensed footage"
+          : "Unlicensed source flagged",
     };
   }
 

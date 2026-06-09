@@ -4,6 +4,7 @@ import type {
   ContentSource,
   ContentStatus,
   PerformanceMetrics,
+  ResourceUsage,
   TrendOpportunity,
   YouTubeChannel,
 } from "@/types";
@@ -205,6 +206,29 @@ export async function removeEvergreen(contentId: string): Promise<void> {
   await updateStore((store) => {
     if (store.evergreen) store.evergreen = store.evergreen.filter((e) => e.contentId !== contentId);
   });
+}
+
+export async function getResourceUsage(): Promise<ResourceUsage[]> {
+  const store = await readStore();
+  return store.resourceUsage ?? [];
+}
+
+export async function saveResourceUsage(usage: ResourceUsage[]): Promise<void> {
+  await updateStore((store) => {
+    store.resourceUsage = usage;
+  });
+}
+
+export async function getCrossPostDefaults(): Promise<string[]> {
+  const store = await readStore();
+  return store.crossPostDefaults ?? ["youtube"];
+}
+
+export async function setCrossPostDefaults(platforms: string[]): Promise<string[]> {
+  await updateStore((store) => {
+    store.crossPostDefaults = platforms;
+  });
+  return platforms;
 }
 
 export async function getNotifications(): Promise<{ type: string; message: string; at: string }[]> {

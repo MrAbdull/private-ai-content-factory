@@ -4,6 +4,7 @@ import { getJobs, getContent } from "@/lib/store/database";
 import { config } from "@/lib/config";
 
 export async function GET() {
+  await resourceManagementEngine.loadPersistedUsage();
   const jobs = await getJobs(50);
   const activeJobs = jobs.filter((j) => j.status === "pending" || j.status === "running").length;
   const failedJobs24h = jobs.filter((j) => {
@@ -24,6 +25,12 @@ export async function GET() {
       pexels: config.hasPexels,
       pixabay: config.hasPixabay,
       supabase: config.hasSupabase,
+      r2: config.hasR2,
+      tiktok: config.hasTikTok,
+      meta: config.hasMeta,
+      linkedin: config.hasLinkedIn,
+      x: config.hasX,
+      googleDrive: config.hasGoogleDrive,
     },
     resources: resourceManagementEngine.getUsageSnapshot(),
     activeJobs,

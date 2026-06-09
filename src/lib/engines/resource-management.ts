@@ -1,3 +1,4 @@
+import { getResourceUsage, saveResourceUsage } from "@/lib/store/local-database";
 import type { AutomationProvider, ResourceUsage } from "@/types";
 import type { EngineResult, ResourceRouteDecision } from "./types";
 
@@ -64,6 +65,35 @@ export class ResourceManagementEngine {
       health: p.health,
       lastChecked: new Date().toISOString(),
     }));
+  }
+
+  async loadPersistedUsage(): Promise<void> {
+    const stored = await getResourceUsage();
+    if (!stored.length) return;
+    for (const s of stored) {
+      const p = this.providers.find((x) => x.provider === s.provider);
+      if (p) {
+        p.quotaUsed = s.quotaUsed;
+        p.quotaLimit = s.quotaLimit;
+        p.health = s.health;
+      }
+    }
+  }
+
+  async persistUsage(): Promise<void> {
+    await saveResourceUsage(this.getUsageSnapshot());
+  }
+
+  recordUsage(task: string, success: boolean) {
+    const route = this.routeTask(task);
+    if (route.data?.selectedProvider) {
+      const p = this.providers.find((x) => x.provider === route.data!.selectedProvider);
+      if (p) {
+        p.quotaUsed += 1;
+        if (!success) this.recordFailure(p.provider);
+      }
+    }
+    void this.persistUsage();
   }
 
   recordFailure(provider: AutomationProvider) {

@@ -17,6 +17,9 @@ function defaultStore(): PlatformStore {
     blastOperations: [],
     footageUsage: [],
     evergreen: [],
+    fingerprints: [],
+    resourceUsage: [],
+    crossPostDefaults: ["youtube"],
     version: 1,
   };
 }

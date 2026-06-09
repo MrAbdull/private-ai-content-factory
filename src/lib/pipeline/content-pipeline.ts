@@ -12,6 +12,8 @@ import { renderShort } from "@/lib/video/renderer";
 import { composeThumbnail } from "@/lib/video/thumbnail-compositor";
 import path from "path";
 import { config } from "@/lib/config";
+import { uploadToR2 } from "@/lib/storage/r2";
+import { resolveCrossPostPlatforms } from "@/lib/platforms/orchestrator";
 import {
   saveContent,
   getChannel,
@@ -179,6 +181,12 @@ async function renderAndFinalize(item: ContentItem, channel: YouTubeChannel): Pr
       style: item.style,
     });
     item.videoUrl = rendered.videoUrl;
+    item.crossPostPlatforms = await resolveCrossPostPlatforms(item);
+
+    if (config.hasR2 && rendered.videoPath) {
+      const r2Video = await uploadToR2(rendered.videoPath, `videos/${item.id}.mp4`);
+      if (r2Video) item.videoUrl = r2Video;
+    }
 
     for (const thumb of item.thumbnails) {
       try {
@@ -187,7 +195,11 @@ async function renderAndFinalize(item: ContentItem, channel: YouTubeChannel): Pr
           headline: thumb.headline,
           layout: thumb.layout,
         });
-        const composedUrl = `/api/media/${path.basename(composed)}`;
+        let composedUrl = `/api/media/${path.basename(composed)}`;
+        if (config.hasR2) {
+          const r2Thumb = await uploadToR2(composed, `thumbnails/${item.id}-${path.basename(composed)}`);
+          if (r2Thumb) composedUrl = r2Thumb;
+        }
         thumb.imageUrl = composedUrl;
         if (thumb.isSelected) item.thumbnailUrl = composedUrl;
       } catch {

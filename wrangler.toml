@@ -1,0 +1,11 @@
+name = "content-factory-cron"
+main = "worker/index.ts"
+compatibility_date = "2024-11-01"
+
+[triggers]
+crons = ["0 */6 * * *"]
+
+[vars]
+APP_URL = "http://localhost:3000"
+
+# Set via: wrangler secret put CRON_SECRET

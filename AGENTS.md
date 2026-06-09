@@ -36,7 +36,15 @@ Works out of the box: mock/template AI, FFmpeg placeholder videos, local publish
 
 ### With secrets
 
-Copy `.env.example` → `.env.local`. Set `OPENAI_API_KEY`, `YOUTUBE_*`, `PEXELS_API_KEY`, `PIXABAY_API_KEY` for full pipeline.
+Copy `.env.example` → `.env.local`. Set `OPENAI_API_KEY`, `YOUTUBE_*`, `PEXELS_API_KEY`, `PIXABAY_API_KEY` for full pipeline. Multi-platform keys (TikTok, Meta, LinkedIn, X) enable real cross-post; without them, mock IDs are returned.
+
+### Platforms
+
+Dashboard at `/dashboard/platforms`. Cross-post defaults stored in `.data/store.json`. `POST /api/content/[id]/crosspost` publishes to selected platforms.
+
+### Cloudflare Worker
+
+`wrangler.toml` + `worker/index.ts` — scheduled cron proxy. Set `APP_URL` and `CRON_SECRET` via wrangler secrets before deploy.
 
 ### Cron
 

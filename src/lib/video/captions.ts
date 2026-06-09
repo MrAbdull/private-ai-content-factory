@@ -8,30 +8,46 @@ export interface CaptionCue {
   text: string;
 }
 
-export function scriptToCues(script: string, totalDuration: number): CaptionCue[] {
-  const lines = script
-    .split("\n")
-    .map((l) => l.replace(/\[.*?\]/g, "").replace(/HOOK:/gi, "").trim())
-    .filter((l) => l.length > 0);
+/** Word-level caption timing — ~2.5 words/sec with min 0.4s per word group */
+export function scriptToWordCues(script: string, totalDuration: number): CaptionCue[] {
+  const clean = script
+    .replace(/\[.*?\]/g, "")
+    .replace(/HOOK:/gi, "")
+    .replace(/\n+/g, " ")
+    .trim();
 
-  if (lines.length === 0) {
-    return [{ start: 0, end: totalDuration, text: "..." }];
+  const words = clean.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length === 0) return [{ start: 0, end: totalDuration, text: "..." }];
+
+  const wordsPerCue = 3;
+  const groups: string[] = [];
+  for (let i = 0; i < words.length; i += wordsPerCue) {
+    groups.push(words.slice(i, i + wordsPerCue).join(" "));
   }
 
-  const slice = totalDuration / lines.length;
-  return lines.map((text, i) => ({
-    start: i * slice,
-    end: Math.min(totalDuration, (i + 1) * slice),
-    text: text.slice(0, 80),
-  }));
+  const wps = words.length / totalDuration;
+  const cues: CaptionCue[] = [];
+  let t = 0;
+
+  for (const group of groups) {
+    const wordCount = group.split(/\s+/).length;
+    const dur = Math.max(0.5, Math.min(wordCount / wps, totalDuration - t));
+    cues.push({ start: t, end: Math.min(totalDuration, t + dur), text: group });
+    t += dur;
+    if (t >= totalDuration) break;
+  }
+
+  if (cues.length > 0) cues[cues.length - 1].end = totalDuration;
+  return cues;
+}
+
+export function scriptToCues(script: string, totalDuration: number): CaptionCue[] {
+  return scriptToWordCues(script, totalDuration);
 }
 
 export function cuesToSrt(cues: CaptionCue[]): string {
   return cues
-    .map((cue, i) => {
-      const idx = i + 1;
-      return `${idx}\n${formatSrtTime(cue.start)} --> ${formatSrtTime(cue.end)}\n${cue.text}\n`;
-    })
+    .map((cue, i) => `${i + 1}\n${formatSrtTime(cue.start)} --> ${formatSrtTime(cue.end)}\n${cue.text}\n`)
     .join("\n");
 }
 
@@ -51,7 +67,6 @@ export async function writeSrtFile(contentId: string, script: string, duration: 
   const dir = path.join(process.cwd(), config.dataDir, "media");
   await fs.mkdir(dir, { recursive: true });
   const srtPath = path.join(dir, `${contentId}.srt`);
-  const cues = scriptToCues(script, duration);
-  await fs.writeFile(srtPath, cuesToSrt(cues), "utf-8");
+  await fs.writeFile(srtPath, cuesToSrt(scriptToWordCues(script, duration)), "utf-8");
   return srtPath;
 }
