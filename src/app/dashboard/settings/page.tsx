@@ -19,9 +19,12 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {[
-              { name: "YouTube Data API", env: "YOUTUBE_CLIENT_ID", status: "Configure in .env.local" },
-              { name: "Supabase", env: "NEXT_PUBLIC_SUPABASE_URL", status: "Configure in .env.local" },
-              { name: "OpenAI", env: "OPENAI_API_KEY", status: "For AI generation" },
+              { name: "Groq (scripts + Whisper)", env: "GROQ_API_KEY", status: "Free tier — primary AI" },
+              { name: "Google Gemini", env: "GEMINI_API_KEY", status: "Free tier — AI backup" },
+              { name: "Edge TTS", env: "EDGE_TTS_VOICE", status: "Free voice — no key needed" },
+              { name: "OpenAI", env: "OPENAI_API_KEY", status: "Optional paid backup" },
+              { name: "YouTube Data API", env: "YOUTUBE_CLIENT_ID", status: "OAuth publishing" },
+              { name: "Supabase", env: "NEXT_PUBLIC_SUPABASE_URL", status: "Optional cloud DB" },
               { name: "Pexels", env: "PEXELS_API_KEY", status: "Footage provider" },
               { name: "Pixabay", env: "PIXABAY_API_KEY", status: "Footage provider" },
             ].map((api) => (

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAiProviderStatus } from "@/lib/ai/providers/router";
 import { resourceManagementEngine } from "@/lib/engines/resource-management";
 import { getJobs, getContent } from "@/lib/store/database";
 import { config } from "@/lib/config";
@@ -21,6 +22,9 @@ export async function GET() {
     timestamp: new Date().toISOString(),
     config: {
       openai: config.hasOpenAI,
+      groq: config.hasGroq,
+      gemini: config.hasGemini,
+      edgeTts: config.hasEdgeTts,
       youtube: config.hasYouTube,
       pexels: config.hasPexels,
       pixabay: config.hasPixabay,
@@ -36,5 +40,6 @@ export async function GET() {
     activeJobs,
     queueDepth,
     failedJobs24h,
+    aiProviders: getAiProviderStatus(),
   });
 }

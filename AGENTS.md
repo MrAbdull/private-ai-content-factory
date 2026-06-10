@@ -36,7 +36,13 @@ Works out of the box: mock/template AI, FFmpeg placeholder videos, local publish
 
 ### With secrets
 
-Copy `.env.example` → `.env.local`. Set `OPENAI_API_KEY`, `YOUTUBE_*`, `PEXELS_API_KEY`, `PIXABAY_API_KEY` for full pipeline. Multi-platform keys (TikTok, Meta, LinkedIn, X) enable real cross-post; without them, mock IDs are returned.
+Copy `.env.example` → `.env.local`. AI uses **multi-provider fallback** (no local Ollama):
+
+- Scripts: `GROQ_API_KEY` → `GEMINI_API_KEY` → `OPENAI_API_KEY` (optional)
+- TTS: Edge TTS (free, no key) → OpenAI TTS (optional)
+- Transcription: Groq Whisper → Gemini → OpenAI
+
+Set `YOUTUBE_*`, `PEXELS_API_KEY` / `PIXABAY_API_KEY` for publish + footage. Multi-platform keys enable real cross-post; without them, mock IDs are returned.
 
 ### Platforms
 
